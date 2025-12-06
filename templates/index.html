@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Admin Dashboard{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* --- Body & Layout --- */
+        body {
+            min-height: 100vh;
+            display: flex;
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a0a;
+            color: #00ffff;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 260px;
+            /* rộng hơn */
+            background-color: #0d0d0d;
+            flex-shrink: 0;
+            border-right: 2px solid #00ffff;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s;
+        }
+
+        /* Logo */
+        .sidebar .logo {
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 2px solid #00ffff;
+        }
+
+        .sidebar .logo img {
+            max-height: 80px;
+            transition: transform 0.3s;
+        }
+
+        .sidebar .logo img:hover {
+            transform: rotate(10deg) scale(1.1);
+        }
+
+        /* Sidebar Header / Title */
+        .sidebar .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #00ffff;
+            letter-spacing: 1px;
+        }
+
+        /* Links */
+        .sidebar a {
+            color: #00ffff;
+            text-decoration: none;
+            display: block;
+            padding: 14px 25px;
+            margin: 5px 10px;
+            border-radius: 6px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .sidebar a::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background-color: #00ffff;
+            transform: scaleY(0);
+            transition: transform 0.3s;
+            transform-origin: top;
+            border-radius: 2px;
+        }
+
+        .sidebar a:hover::before {
+            transform: scaleY(1);
+        }
+
+        .sidebar a:hover {
+            background-color: rgba(0, 255, 255, 0.1);
+            color: #00ffff;
+            text-shadow: 0 0 8px #00ffff;
+        }
+
+        /* Active link */
+        .sidebar a.active {
+            background-color: rgba(0, 255, 255, 0.2);
+            text-shadow: 0 0 12px #00ffff;
+        }
+
+        /* Content */
+        .content {
+            flex-grow: 1;
+            padding: 30px;
+            background-color: #0a0a0a;
+            overflow-x: auto;
+        }
+
+        /* Card neon */
+        .card {
+            background-color: #111;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 10px #00ffff;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff inset;
+            transform: translateY(-3px);
+        }
+
+        /* Text neon glow */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p {
+            color: #00ffff;
+            text-shadow: 0 0 6px #00ffff;
+        }
+
+        /* Scrollbar custom */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ffff;
+            border-radius: 4px;
+        }
+    </style>
+
+    <!-- Google Font Orbitron cho kiểu Tron -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js?v=2.30.0"></script>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <!-- Logo -->
+        <div class="logo">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+        </div>
+
+        <!-- Sidebar Header / Title -->
+        <div class="sidebar-header">
+            Movie Admin
+        </div>
+
+        <!-- Links -->
+        <a href="{{ url_for('dashboard') }}"
+            class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('trends') }}" class="{% if request.endpoint == 'trends' %}active{% endif %}">Trends</a>
+        <a href="{{ url_for('distribution') }}"
+            class="{% if request.endpoint == 'distribution' %}active{% endif %}">Distribution</a>
+        <a href="{{ url_for('recommend') }}"
+            class="{% if request.endpoint == 'recommend' %}active{% endif %}">Recommend</a>
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+        <div class="neon-line"></div>
+
+        {% block content %}
+        <!-- Nội dung các trang con sẽ được nhúng vào đây -->
+        {% endblock %}
+    </div>
+
+    <style>
+        /* Thanh ngang neon Tron */
+        .neon-line {
+            width: 100%;
+            /* full width */
+            height: 4px;
+            /* dày hơn để nhìn rõ */
+            background-color: #00ffff;
+            box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff inset;
+            margin-bottom: 25px;
+            animation: pulse 1s infinite alternate;
+            /* nhấp nháy */
+        }
+
+        /* Animation nhấp nháy */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff inset;
+                opacity: 0.6;
+            }
+
+            50% {
+                box-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff inset;
+                opacity: 1;
+            }
+
+            100% {
+                box-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff inset;
+                opacity: 0.6;
+            }
+        }
+    </style>
+
+
+
+    <!-- Bootstrap JS -->
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+
+</body>
+
+</html>

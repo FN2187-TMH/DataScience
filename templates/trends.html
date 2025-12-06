@@ -1,0 +1,15 @@
+{% extends "index.html" %}
+
+{% block title %}Trends{% endblock %}
+
+{% block content %}
+<h1>Trends</h1>
+<p>Top 10 sản phẩm bán chạy</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <img src="data:image/png;base64,{{ img_top }}" alt="Top Items" class="img-fluid">
+    </div>
+</div>
+
+{% endblock %}
