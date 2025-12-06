@@ -3,13 +3,74 @@
 {% block title %}Trends{% endblock %}
 
 {% block content %}
-<h1>Trends</h1>
-<p>Top 10 sản phẩm bán chạy</p>
+<h1>Movie Trends</h1>
+<p>Yearly distribution of movies (Line & Area Charts)</p>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <img src="data:image/png;base64,{{ img_top }}" alt="Top Items" class="img-fluid">
+<script id="df_data" type="application/json">
+    {{ df_json|safe }}
+</script>
+
+
+<div class="row">
+    <div class="col-md-6">
+        <div id="line_chart" style="height: 400px; width:100%"></div>
+    </div>
+    <div class="col-md-6">
+        <div id="area_chart" style="height: 400px; width:100%"></div>
     </div>
 </div>
+
+
+<script>
+    // Lấy dữ liệu JSON
+    const df = JSON.parse(document.getElementById("df_data").textContent);
+
+    // Đếm số phim theo từng năm
+    let yearCount = {};
+
+    df.forEach(row => {
+        if (!row.Year) return;
+        let y = parseInt(row.Year);
+
+        if (!yearCount[y]) yearCount[y] = 0;
+        yearCount[y]++;
+    });
+
+    const years = Object.keys(yearCount)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+    const counts = years.map(y => yearCount[y]);
+
+    // LINE CHART
+    Plotly.newPlot("line_chart", [{
+        x: years,
+        y: counts,
+        type: "scatter",
+        mode: "lines+markers",
+        line: { width: 3 }
+    }], {
+        title: "Movies per Year (Line Chart)",
+        paper_bgcolor: "#111",
+        plot_bgcolor: "#111",
+        font: { color: "#fff" }
+    });
+
+    // AREA CHART
+    Plotly.newPlot("area_chart", [{
+        x: years,
+        y: counts,
+        type: "scatter",
+        fill: "tozeroy",
+        mode: "lines",
+        line: { width: 2 }
+    }], {
+        title: "Movies per Year (Area Chart)",
+        paper_bgcolor: "#111",
+        plot_bgcolor: "#111",
+        font: { color: "#fff" }
+    });
+</script>
+
 
 {% endblock %}

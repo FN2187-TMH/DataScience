@@ -13,7 +13,7 @@ df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce")
 df["Review Count"] = df["Review Count"].apply(
     lambda x: int(str(x).replace(",", "")) if pd.notna(x) else 0
 )
-
+df["Year"] = pd.to_numeric(df["Year"], errors="coerce").astype("Int64")
 df_json = df.to_json(orient="records")   # pandas tự convert NaN → null
 
 
@@ -68,8 +68,45 @@ def distribution():
 # ============================
 @app.route("/recommend")
 def recommend():
-    # bạn tự tạo biến recommended_items sau
-    return render_template("recommend.html", df_json=df_json)
+    # Lấy tất cả genre duy nhất
+    all_genres = set()
+    for g in df['Genre'].dropna():
+        for gg in g.split(','):
+            all_genres.add(gg.strip())
+
+    all_genres = sorted(list(all_genres))
+
+    return render_template(
+        "recommend.html",
+        df_json=df_json,
+        all_genres=all_genres
+    )
+
+
+@app.route("/movie/<int:movie_id>")
+def movie_detail(movie_id):
+    # Lọc movie dựa vào id
+    movie_row = df[df["id"] == movie_id]
+
+    if movie_row.empty:
+        # Nếu không tìm thấy movie, trả về 404 hoặc redirect
+        return "Movie not found", 404
+
+    # Lấy record dưới dạng dict
+    movie = movie_row.iloc[0].to_dict()
+
+    # Tìm phim tương đồng dựa vào recommended_ids
+    similar_movies = []
+    if movie.get("recommended_ids"):
+        rec_ids = [int(i) for i in movie["recommended_ids"].strip("[]").split(",") if i.strip().isdigit()]
+        similar_movies = df[df["id"].isin(rec_ids)].to_dict(orient="records")
+
+    return render_template(
+        "movie_detail.html",
+        movie=movie,
+        similar_movies=similar_movies
+    )
+
 
 
 # ============================

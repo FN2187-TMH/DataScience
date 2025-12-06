@@ -1,0 +1,73 @@
+{% extends "index.html" %}
+
+{% block title %}{{ movie.Title }} Details{% endblock %}
+
+{% block content %}
+<h1 style="color:#00ffff; margin-bottom:20px;">{{ movie.Title }} ({{ movie.Year }})</h1>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <img src="{{ movie.Poster if movie.Poster else url_for('static', filename='default_poster.jpg') }}"
+             class="img-fluid" alt="{{ movie.Title }}">
+    </div>
+    <div class="col-md-8">
+        <p><strong>Genre:</strong> {{ movie.Genre }}</p>
+        <p><strong>Rating:</strong> <span style="color:#ff00ff;">{{ movie.Rating }}</span></p>
+        <p><strong>Duration:</strong> {{ movie["Duration (min)"] }} min</p>
+        <p><strong>Director:</strong> {{ movie.Director }}</p>
+        <p><strong>Cast:</strong> {{ movie.Cast }}</p>
+        <p><strong>Description:</strong> {{ movie.Description }}</p>
+        <p><strong>Reviews:</strong> {{ movie["Review Count"] }} reviews</p>
+    </div>
+</div>
+
+<h3 style="color:#00ffff; margin-bottom:15px;">Similar Movies</h3>
+<div class="row">
+    {% for sim in similar_movies %}
+    <div class="col-md-3 mb-3 animate__animated animate__fadeInUp">
+        <div class="card fixed-card">
+            <img src="{{ sim.Poster if sim.Poster else url_for('static', filename='default_poster.jpg') }}"
+                 class="card-img-top">
+            <div class="card-body">
+                <h5 class="card-title">{{ sim.Title }}</h5>
+                <p class="card-text">
+                    <span style="color:#39ff14;">{{ sim.Year }}</span> |
+                    <span style="color:#ff00ff;">{{ sim.Rating }}</span>
+                </p>
+                <a href="{{ url_for('movie_detail', movie_id=sim.id) }}" class="btn btn-outline-info btn-sm">Details</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+
+<style>
+.fixed-card {
+    width: 200px;  /* cố định chiều rộng */
+    height: 500x; /* cố định chiều cao */
+}
+.card-img-top {
+    height: 225px;
+    object-fit: cover;
+}
+.card {
+    background-color: #111;
+    color: #00ffff;
+    border: 1px solid #00ffff;
+    box-shadow: 0 0 10px #00ffff;
+    transition: all 0.3s;
+}
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 20px #00ffff inset;
+}
+.card-title {
+    font-size: 0.9rem;
+}
+.card-text {
+    font-size: 0.8rem;
+}
+</style>
+{% endblock %}
