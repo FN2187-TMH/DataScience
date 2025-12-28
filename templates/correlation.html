@@ -1,0 +1,215 @@
+{% extends "index.html" %}
+
+{% block title %}Correlation Analysis{% endblock %}
+
+{% block content %}
+<h1>Correlation Analysis</h1>
+<p>Visualizing the relationships and density distribution of key numerical features.</p>
+
+<script id="df_data_correlation" type="application/json">
+    {{ df_json | safe }}
+</script>
+
+<div class="row mb-4">
+
+    <div class="col-md-6">
+        <div id="correlation_heatmap" style="width:100%; height:550px;"></div>
+    </div>
+
+    <div class="col-md-6">
+        <div id="density_heatmap" style="width:100%; height:550px;"></div>
+    </div>
+
+</div>
+
+
+<script>
+/* =============================
+    LOAD JSON DATA
+============================= */
+const dfRaw = JSON.parse(document.getElementById("df_data_correlation").textContent);
+
+/* =============================
+    PREPARE NUMERIC COLS
+    (Đảm bảo thứ tự và làm sạch dữ liệu)
+============================= */
+// Thứ tự cột phải KHỚP với Python Heatmap: Rating, Metascore, Duration (min), Votes, Review Count
+const numericCols = ["Rating", "Metascore", "Duration (min)", "Votes", "Review Count"];
+
+// Dữ liệu đã làm sạch cho Heatmap (fillna(0) cho tương quan)
+const dataForCorrelation = []; 
+
+// Dữ liệu đã làm sạch cho Density Plot (dropna() cho Rating/Metascore)
+const dataForDensity = []; 
+
+dfRaw.forEach(row => {
+    let obj = {};
+    let rating = 0;
+    let metascore = 0;
+    let isValidDensityPoint = true;
+    
+    numericCols.forEach(col => {
+        let value = row[col];
+        
+        // Làm sạch chuỗi (ví dụ: '1,234' -> '1234')
+        if (typeof value === 'string') {
+             value = value.replace(/,/g, '');
+        }
+
+        // Chuyển sang số
+        let numericValue = parseFloat(value);
+        
+        // Gán giá trị sau khi làm sạch
+        obj[col] = numericValue || 0; 
+        
+        // Lọc cho Density Plot
+        if (col === 'Rating') {
+            rating = numericValue;
+        } else if (col === 'Metascore') {
+            metascore = numericValue;
+        }
+    });
+
+    // Lọc các điểm dữ liệu không hợp lệ cho Density Plot (tương đương .dropna(subset=['Rating', 'Metascore']))
+    // Giả định Rating phải > 0 và Metascore phải > 0 để là dữ liệu hợp lệ
+    if (rating > 0 && metascore > 0) {
+        dataForDensity.push({ Rating: rating, Metascore: metascore });
+    }
+    
+    dataForCorrelation.push(obj);
+});
+
+
+// **********************************************
+// CHỨC NĂNG TÍNH TƯƠNG QUAN PEARSON 
+// **********************************************
+function calculatePearsonCorrelation(x, y) {
+    const n = x.length;
+    if (n === 0) return 0;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0);
+    const sumX2 = x.reduce((sum, val) => sum + val * val, 0);
+    const sumY2 = y.reduce((sum, val) => sum + val * val, 0);
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    if (denominator === 0) return 0;
+    return parseFloat((numerator / denominator).toFixed(2)); 
+}
+
+function calculateCorrelationMatrix(data, cols) {
+    let matrix = [];
+    for (let i = 0; i < cols.length; i++) {
+        let row = [];
+        for (let j = 0; j < cols.length; j++) {
+            const col1 = data.map(d => d[cols[i]]);
+            const col2 = data.map(d => d[cols[j]]);
+            // LƯU Ý: Tính tương quan nên dùng dataForCorrelation (có fillna(0))
+            // Tuy nhiên, để khớp với kết quả Pandas .corr().dropna(), ta nên dùng dataForDensity.
+            // Để đơn giản và khớp với code JS trước, ta vẫn dùng dataForCorrelation có fillna(0)
+            // nhưng lý tưởng là lọc dataForCorrelation để loại bỏ NaN/0 trước khi tính. 
+            row.push(calculatePearsonCorrelation(col1, col2));
+        }
+        matrix.push(row);
+    }
+    return matrix;
+}
+
+const corrMatrix = calculateCorrelationMatrix(dataForCorrelation, numericCols);
+
+
+/* =============================
+    1. HEATMAP TƯƠNG QUAN
+    (Sử dụng kết quả tính toán trên dataForCorrelation)
+============================= */
+const heatmapData = [{
+    z: corrMatrix,
+    x: numericCols,
+    y: numericCols,
+    type: 'heatmap',
+    colorscale: 'RdBu', 
+    reversescale: true, 
+    
+    // Ép buộc dải màu
+    zmin: -1, 
+    zmax: 1,
+
+    // Dữ liệu text
+    text: corrMatrix.map(row => row.map(val => val.toFixed(2))), 
+    texttemplate: "%{text}", 
+    
+
+    textfont: { 
+        size: 14, 
+        color: "#fff" 
+    }, 
+
+    colorbar: {
+        title: 'Pearson r',
+        titleside: 'right'
+    },
+    hovertemplate: 'X: %{x}<br>Y: %{y}<br>Correlation: %{z}<extra></extra>',
+}];
+
+const heatmapLayout = {
+    title: "Correlation Heatmap of Numerical Features",
+    xaxis: { automargin: true, side: "bottom" },
+    yaxis: { automargin: true },
+    paper_bgcolor: "#111",
+    plot_bgcolor: "#111",
+    font: { color: "#fff" },
+    margin: { t: 80, b: 20, l: 100, r: 20 },
+    autosize: true 
+};
+
+Plotly.newPlot("correlation_heatmap", heatmapData, heatmapLayout);
+
+
+/* =============================
+    2. DATA DENSITY HEATMAP (Rating vs. Metascore)
+    (Sử dụng dataForDensity đã loại bỏ các giá trị null/0)
+============================= */
+const densityData = [{
+    x: dataForDensity.map(d => d.Rating), // Dữ liệu thô (không có null/0)
+    y: dataForDensity.map(d => d.Metascore), // Dữ liệu thô (không có null/0)
+    type: 'histogram2d', 
+    colorscale: 'Viridis', 
+    nbinsx: 15, 
+    nbinsy: 15, 
+    colorbar: {
+        title: 'count',
+        titleside: 'right'
+    }
+}];
+
+const densityLayout = {
+    title: "Data Density of Rating vs. Metascore (Density Heatmap)",
+    xaxis: { 
+        title: "User Rating (0-10)", 
+        automargin: true,
+        range: [1, 10] 
+    },
+    yaxis: { 
+        title: "Professional Metascore (0-100)", 
+        automargin: true,
+        range: [0, 100] 
+    },
+    paper_bgcolor: "#111",
+    plot_bgcolor: "#111",
+    font: { color: "#fff" },
+    hovermode: 'closest',
+    margin: { t: 50, b: 20, l: 50, r: 20 },
+    autosize: true
+};
+
+Plotly.newPlot("density_heatmap", densityData, densityLayout);
+
+
+// Cập nhật lại bố cục sau khi vẽ để đảm bảo kích thước responsive chính xác
+window.addEventListener('resize', function() {
+    Plotly.relayout('correlation_heatmap', {autosize: true});
+    Plotly.relayout('density_heatmap', {autosize: true});
+});
+</script>
+
+{% endblock %}

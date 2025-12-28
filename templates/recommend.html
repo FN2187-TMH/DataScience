@@ -5,60 +5,85 @@
 {% block content %}
 <h1 class="text-info mb-4">Movie Recommendations</h1>
 
-<!-- FILTER + SEARCH -->
-<div class="row mb-3">
-    <div class="col-md-4">
-        <select id="feature_filter" class="form-select">
-            <option value="">-- Filter by Genre --</option>
-            {% for g in all_genres %}
-                <option value="{{ g }}">{{ g }}</option>
-            {% endfor %}
-        </select>
+<div class="row">
+    <div class="col-md-3">
+        <div class="sticky-top" style="top: 20px;">
+            <div class="card p-3 filter-card mb-4">
+                <h4 class="text-info mb-3">Movie Filters</h4>
+
+                <div class="mb-3">
+                    <label for="search_input" class="form-label text-light">Search by Title</label>
+                    <input type="text" id="search_input" class="form-control" placeholder="Search movie by title...">
+                </div>
+
+                <div class="mb-3">
+                    <label for="feature_filter" class="form-label text-light">Filter by Genre (Multiple)</label>
+                    <select id="feature_filter" class="form-select" multiple size="5">
+                        <option value="">-- All Genres --</option>
+                        {% for g in all_genres %}
+                        <option value="{{ g }}">{{ g }}</option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-white">Hold Ctrl/Cmd to select multiple.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label for="year_filter" class="form-label text-light">Filter by Year</label>
+                    <select id="year_filter" class="form-select">
+                        <option value="">-- All Years --</option>
+                        {% for year in all_years %}
+                        <option value="{{ year }}">{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="rating_slider" class="form-label text-light">Minimum Rating:</label>
+                    <input type="range" class="form-range" min="0" max="10" step="0.5" id="rating_slider" value="0">
+                    <span id="rating_value" style="color: #df5c11;">0.0+</span>
+                </div>
+
+                <button id="apply_filter_btn" class="btn btn-info w-100 mt-2">Apply Filters</button>
+            </div>
+        </div>
     </div>
-    <div class="col-md-6">
-        <input type="text" id="search_input" class="form-control" placeholder="Search movie by title...">
-    </div>
-    <div class="col-md-2">
-        <button id="search_btn" class="btn btn-info w-100">Search</button>
+
+    <div class="col-md-9">
+        <div class="row" id="movies_container">
+            </div>
+
+        <div class="d-flex justify-content-center mt-3 mb-5">
+            <button id="prev_page" class="btn btn-outline-light me-2" disabled>Previous</button>
+            <span id="page_info" class="align-self-center text-light mx-2"></span>
+            <button id="next_page" class="btn btn-outline-light ms-2">Next</button>
+        </div>
     </div>
 </div>
 
-<!-- MOVIE CARDS CONTAINER -->
-<div class="row" id="movies_container">
-    <!-- Movie cards sẽ được inject bằng JS -->
-</div>
 
-<!-- PAGINATION CONTROLS -->
-<div class="d-flex justify-content-center mt-3 mb-5">
-    <button id="prev_page" class="btn btn-outline-light me-2" disabled>Previous</button>
-    <span id="page_info" class="align-self-center text-light mx-2"></span>
-    <button id="next_page" class="btn btn-outline-light ms-2">Next</button>
-</div>
-
-<!-- Dữ liệu JSON từ Flask -->
 <script id="df_data" type="application/json">
     {{ df_json | safe }}
 </script>
 
 <script>
-const df = JSON.parse(document.getElementById("df_data").textContent);
-const DEFAULT_POSTER = "{{ url_for('static', filename='default_poster.png') }}";
-const PAGE_SIZE = 18;
-let currentPage = 1;
-let filteredMovies = df;
+    const df = JSON.parse(document.getElementById("df_data").textContent);
+    const DEFAULT_POSTER = "{{ url_for('static', filename='default_poster.png') }}";
+    const PAGE_SIZE = 18;
+    let currentPage = 1;
+    let filteredMovies = df;
 
-// ====================
-// CREATE MOVIE CARD
-// ====================
-function createMovieCard(movie) {
-    const col = document.createElement("div");
-    col.className = "col-md-2 mb-4"; // Bootstrap grid 2/12
+    // ====================
+    // CREATE MOVIE CARD
+    // ====================
+    function createMovieCard(movie) {
+        const col = document.createElement("div");
+        col.className = "col-md-3 mb-4";
 
-    const poster = movie.Poster && movie.Poster !== "" ? movie.Poster : DEFAULT_POSTER;
+        const poster = movie.Poster && movie.Poster !== "" ? movie.Poster : DEFAULT_POSTER;
 
-    col.innerHTML = `
+        col.innerHTML = `
         <div class="card h-100 fixed-card">
-            <img src="${poster}" class="card-img-top" alt="${movie.Title}" onerror="this.src='${DEFAULT_POSTER}'">
+            <img src="${poster}" class="card-img-top" alt="${movie.Title}" loading="lazy" decoding="async" onerror="this.src='${DEFAULT_POSTER}'">
             <div class="card-body d-flex flex-column justify-content-between">
                 <h5 class="card-title">${movie.Title}</h5>
                 <p class="card-text">
@@ -70,111 +95,165 @@ function createMovieCard(movie) {
             </div>
         </div>
     `;
-    return col;
-}
-
-// ====================
-// DISPLAY MOVIES FOR CURRENT PAGE
-// ====================
-function displayPage(page) {
-    const container = document.getElementById("movies_container");
-    container.innerHTML = "";
-
-    const start = (page - 1) * PAGE_SIZE;
-    const end = Math.min(start + PAGE_SIZE, filteredMovies.length);
-
-    for (let i = start; i < end; i++) {
-        container.appendChild(createMovieCard(filteredMovies[i]));
+        return col;
     }
 
-    // Update pagination buttons
-    document.getElementById("prev_page").disabled = page === 1;
-    document.getElementById("next_page").disabled = end >= filteredMovies.length;
+    // ====================
+    // DISPLAY MOVIES FOR CURRENT PAGE
+    // ====================
+    function displayPage(page) {
+        const container = document.getElementById("movies_container");
+        container.innerHTML = "";
 
-    document.getElementById("page_info").textContent = `Page ${page} of ${Math.ceil(filteredMovies.length / PAGE_SIZE)}`;
-}
+        const start = (page - 1) * PAGE_SIZE;
+        const end = Math.min(start + PAGE_SIZE, filteredMovies.length);
 
-// ====================
-// FILTER + SEARCH
-// ====================
-function filterMovies() {
-    const genre = document.getElementById("feature_filter").value;
-    const search = document.getElementById("search_input").value.toLowerCase();
+        // Add check for no results
+        if (filteredMovies.length === 0) {
+            container.innerHTML = '<div class="alert alert-warning mt-5">No movies found matching the criteria.</div>';
+        } else {
+            for (let i = start; i < end; i++) {
+                container.appendChild(createMovieCard(filteredMovies[i]));
+            }
+        }
 
-    filteredMovies = df.filter(m => {
-        let matchGenre = genre ? (m.Genre && m.Genre.includes(genre)) : true;
-        let matchTitle = search ? (m.Title && m.Title.toLowerCase().includes(search)) : true;
-        return matchGenre && matchTitle;
+        // Update pagination buttons
+        document.getElementById("prev_page").disabled = page === 1;
+        document.getElementById("next_page").disabled = end >= filteredMovies.length;
+
+        document.getElementById("page_info").textContent = `Page ${page} of ${Math.ceil(filteredMovies.length / PAGE_SIZE)}`;
+    }
+
+    // ====================
+    // FILTER + SEARCH (UPDATED LOGIC)
+    // ====================
+    function filterMovies() {
+        // Get selected genres from the multi-select box
+        const genreSelect = document.getElementById("feature_filter");
+        const selectedGenres = Array.from(genreSelect.options)
+            .filter(option => option.selected && option.value !== "")
+            .map(option => option.value);
+
+        const search = document.getElementById("search_input").value.toLowerCase();
+        const year = document.getElementById("year_filter").value;
+        // Đã loại bỏ const cert
+        const minRating = parseFloat(document.getElementById("rating_slider").value);
+
+        filteredMovies = df.filter(m => {
+            // 1. Title Search
+            const matchTitle = search ? (m.Title && m.Title.toLowerCase().includes(search)) : true;
+
+            // 2. Multi-Genre Filter (MATCH ANY): Movie must include AT LEAST ONE of the selected genres
+            let matchGenre = true;
+            if (selectedGenres.length > 0) {
+                matchGenre = selectedGenres.some(selectedG => m.Genre && m.Genre.includes(selectedG));
+            }
+
+            // 3. Year Filter
+            const matchYear = year ? (m.Year && String(m.Year) === year) : true;
+
+            // **ĐÃ LOẠI BỎ LOGIC LỌC CERTIFICATE**
+            // const matchCert = cert ? (m.Certificate && m.Certificate === cert) : true;
+
+            // 4. Minimum Rating Filter
+            const movieRating = parseFloat(m.Rating);
+            // If Rating is NaN (missing), we exclude it from the rating filter unless minRating is 0
+            const matchRating = !isNaN(movieRating) ? movieRating >= minRating : minRating === 0;
+
+            // Kết hợp các điều kiện còn lại:
+            return matchTitle && matchGenre && matchYear && matchRating;
+        });
+
+        currentPage = 1;
+        displayPage(currentPage);
+    }
+
+    // ====================
+    // EVENT LISTENERS 
+    // ====================
+    document.getElementById("apply_filter_btn").addEventListener("click", filterMovies);
+
+    document.getElementById("rating_slider").addEventListener("input", function () {
+        document.getElementById("rating_value").textContent = `${this.value}+`;
     });
 
-    currentPage = 1;
+    // Event for search input (optional: search on keyup/enter)
+    document.getElementById("search_input").addEventListener("keyup", function (e) {
+        if (e.key === "Enter") filterMovies();
+    });
+
+
+    // PAGINATION
+    document.getElementById("prev_page").addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage--;
+            displayPage(currentPage);
+        }
+    });
+
+    document.getElementById("next_page").addEventListener("click", () => {
+        if (currentPage * PAGE_SIZE < filteredMovies.length) {
+            currentPage++;
+            displayPage(currentPage);
+        }
+    });
+
+    // ====================
+    // INITIAL LOAD
+    // ====================
     displayPage(currentPage);
-}
-
-// ====================
-// EVENT LISTENERS
-// ====================
-document.getElementById("feature_filter").addEventListener("change", filterMovies);
-document.getElementById("search_btn").addEventListener("click", filterMovies);
-document.getElementById("search_input").addEventListener("keyup", function(e){
-    if(e.key === "Enter") filterMovies();
-});
-
-document.getElementById("prev_page").addEventListener("click", () => {
-    if(currentPage > 1) {
-        currentPage--;
-        displayPage(currentPage);
-    }
-});
-
-document.getElementById("next_page").addEventListener("click", () => {
-    if(currentPage * PAGE_SIZE < filteredMovies.length) {
-        currentPage++;
-        displayPage(currentPage);
-    }
-});
-
-// ====================
-// INITIAL LOAD
-// ====================
-displayPage(currentPage);
 </script>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
 
 <style>
-.fixed-card {
-    height: 500px; /* chiều cao cố định */
-}
-.card-img-top {
-    height: 400px;
-    object-fit: contain;
-}
-.card {
-    background-color: #111;
-    color: #00ffff;
-    border: 1px solid #00ffff;
-    box-shadow: 0 0 10px #00ffff;
-    transition: all 0.3s;
-}
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff inset;
-}
-.card-title {
-    font-size: 0.9rem;
-    font-weight: bold;
-}
-.card-text {
-    font-size: 0.75rem;
-}
-.text-rating {
-    color: #ff00ff;
-    font-weight: bold;
-}
-.text-year {
-    color: #39ff14;
-    font-weight: bold;
-}
+    /* CSS for Sidebar */
+    .filter-card {
+        background-color: #1a1a1a;
+        border: 1px solid #00ffff;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+
+    /* CSS for Movie Card */
+    .fixed-card {
+        height: 500px;
+    }
+
+    .card-img-top {
+        height: 300px;
+        object-fit: cover;
+    }
+
+    .card {
+        background-color: #111;
+        color: #00ffff;
+        border: 1px solid #00ffff;
+        box-shadow: 0 0 10px #00ffff;
+        transition: all 0.3s;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff inset;
+    }
+
+    .card-title {
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+
+    .card-text {
+        font-size: 0.75rem;
+    }
+
+    .text-rating {
+        color: #ff00ff;
+        font-weight: bold;
+    }
+
+    .text-year {
+        color: #39ff14;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}

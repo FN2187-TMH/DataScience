@@ -4,14 +4,12 @@
 
 {% block content %}
 <h1>Distribution</h1>
-<p>Histogram + Sunburst + Treemap</p>
+<p>Visualizing feature distribution and hierarchical analysis of Top 5 Years and Genres.</p>
 
-<!-- JSON -->
 <script id="df_data" type="application/json">
     {{ df_json | safe }}
 </script>
 
-<!-- Histogram Row -->
 <div class="row mb-4">
     <div class="col-md-6">
         <div id="hist_rating" style="width:100%; height:400px;"></div>
@@ -21,7 +19,15 @@
     </div>
 </div>
 
-<!-- Sunburst + Treemap Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div id="box_rating" style="width:100%; height:400px;"></div>
+    </div>
+    <div class="col-md-6">
+        <div id="violin_duration" style="width:100%; height:400px;"></div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-6">
         <div id="sunburst_chart" style="width:100%; height:450px;"></div>
@@ -31,14 +37,15 @@
     </div>
 </div>
 
+
 <script>
 /* =============================
-   LOAD JSON
+    LOAD JSON
 ============================= */
 const df = JSON.parse(document.getElementById("df_data").textContent);
 
 /* =============================
-   HISTOGRAM DATA
+    DATA PREP (Hist, Box, Violin)
 ============================= */
 const ratingValues = df
     .filter(r => r.Rating && !isNaN(r.Rating))
@@ -47,130 +54,166 @@ const ratingValues = df
 const yearValues = df
     .filter(r => r.Year && !isNaN(r.Year))
     .map(r => parseInt(r.Year));
+    
+const durationValues = df
+    .filter(r => r['Duration (min)'] && !isNaN(r['Duration (min)']))
+    .map(r => parseFloat(r['Duration (min)']));
 
 
 /* =============================
-   HISTOGRAM OF RATING
+    HELPER FUNCTION: Lọc Top N Years → Top N Genres (ĐÃ KHẮC PHỤC LỖI)
 ============================= */
-Plotly.newPlot("hist_rating", [{
-    x: ratingValues,
-    type: "histogram",
-    marker: { opacity: 0.7 }
-}], {
-    title: "Histogram of Ratings",
-    paper_bgcolor: "#111",
-    plot_bgcolor: "#111",
-    font: { color: "#fff" },
-    xaxis: { title: "Rating" },
-    yaxis: { title: "Count" }
-});
+/**
+ * Xây dựng cấu trúc phân cấp Top N Year → Top N Genre.
+ * @param {number} topNYear Số lượng năm muốn lấy (Top 5)
+ * @param {number} topNGenre Số lượng thể loại muốn lấy trong mỗi năm (Top 5)
+ * @returns {object} {labels, parents, values, chartTitle}
+ */
+function buildYearGenreHierarchy(topNYear = 5, topNGenre = 5) {
+    let yearTotals = {}; 
+    let yearGenreCounts = {}; 
+    const rootLabel = `All Years (Top ${topNYear})`;
+    const chartTitle = `Top ${topNYear} Years → Top ${topNGenre} Genres`;
+    
+    df.forEach(row => {
+        if (!row.Year || !row.Genre) return;
 
+        const year = parseInt(row.Year);
+        if (isNaN(year)) return;
 
-/* =============================
-   HISTOGRAM OF YEAR
-============================= */
-Plotly.newPlot("hist_year", [{
-    x: yearValues,
-    type: "histogram",
-    autobinx: false,
-    xbins: {
-        start: Math.min(...yearValues),
-        end: Math.max(...yearValues),
-        size: 5
-    },
-    marker: { opacity: 0.7 }
-}], {
-    title: "Histogram of Release Year",
-    paper_bgcolor: "#111",
-    plot_bgcolor: "#111",
-    font: { color: "#fff" },
-    xaxis: { title: "Year" },
-    yaxis: { title: "Count" }
-});
-
-
-/* =============================
-   SUNBURST + TREEMAP DATA
-============================= */
-
-// Build hierarchy: Genre → Year → Count
-let hierarchy = {};
-
-df.forEach(row => {
-    if (!row.Genre || !row.Year) return;
-
-    let year = parseInt(row.Year);
-    let genres = row.Genre.split(",").map(g => g.trim());
-
-    genres.forEach(g => {
-        if (!hierarchy[g]) hierarchy[g] = {};
-        if (!hierarchy[g][year]) hierarchy[g][year] = 0;
-        hierarchy[g][year]++;
+        const cleanedGenre = row.Genre.replace(/[\r\n]+/g, '').trim();
+        let genres = cleanedGenre.split(",").map(g => g.trim()).filter(g => g.length > 0);
+        
+        // 1. Tính tổng số phim mỗi năm
+        yearTotals[year] = (yearTotals[year] || 0) + 1;
+        
+        if (!yearGenreCounts[year]) yearGenreCounts[year] = {};
+        
+        // 2. Tính số lượng mỗi Genre trong năm đó
+        genres.forEach(genre => {
+            yearGenreCounts[year][genre] = (yearGenreCounts[year][genre] || 0) + 1;
+        });
     });
-});
 
-// Convert to Plotly format
-let labels = ["All Genres"];
-let parents = [""];
-let values  = [0];  // Root node tạm
-// Tính tổng các con và gán cho root
-const totalRoot = Object.values(hierarchy).reduce((sumGenre, genreObj) => {
-    return sumGenre + Object.values(genreObj).reduce((sumYear, count) => sumYear + count, 0);
-}, 0);
-values[0] = totalRoot;
+    // 3. Lọc ra Top N Years
+    const sortedYears = Object.entries(yearTotals)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, topNYear)
+        .map(([year]) => parseInt(year)); 
+        
+    // 4. Chuyển sang định dạng Plotly
+    let labels = [rootLabel];
+    let parentsArray = [""];
+    let values  = [0]; 
+    let totalRoot = 0;
 
+    for (let year of sortedYears) {
+        const yearStr = year.toString();
+        labels.push(yearStr);
+        parentsArray.push(rootLabel);
 
-for (let genre in hierarchy) {
-    labels.push(genre);
-    parents.push("All Genres");
+        const genreCountsInYear = yearGenreCounts[year];
+        
+        // Lọc ra Top N Genres trong năm này
+        const sortedGenresInYear = Object.entries(genreCountsInYear)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, topNGenre);
 
-    let genreTotal = 0;
-    for (let year in hierarchy[genre]) {
-        genreTotal += hierarchy[genre][year];
+        let yearTotal = sortedGenresInYear.reduce((sum, [, count]) => sum + count, 0);
+        values.push(yearTotal);
+        totalRoot += yearTotal;
+
+        for (let [genre, count] of sortedGenresInYear) {
+            // *** SỬA LỖI: TẠO NHÃN DUY NHẤT ***
+            const uniqueGenreLabel = `${genre} (${yearStr})`; 
+            labels.push(uniqueGenreLabel);
+            parentsArray.push(yearStr);
+            values.push(count);
+        }
     }
-    values.push(genreTotal);
 
-    for (let year in hierarchy[genre]) {
-        labels.push(year);
-        parents.push(genre);
-        values.push(hierarchy[genre][year]);
-    }
+    values[0] = totalRoot;
+    
+    return { labels, parents: parentsArray, values, chartTitle };
 }
 
-values[0] = values.slice(1).reduce((a,b)=>a+b,0);
+
 /* =============================
-   SUNBURST
+    HISTOGRAM OF RATING
 ============================= */
+Plotly.newPlot("hist_rating", [{ x: ratingValues, type: "histogram", marker: { opacity: 0.7 } }], {
+    title: "Histogram of Ratings", paper_bgcolor: "#111", plot_bgcolor: "#111",
+    font: { color: "#fff" }, xaxis: { title: "Rating" }, yaxis: { title: "Count" }
+});
+
+
+/* =============================
+    HISTOGRAM OF YEAR
+============================= */
+Plotly.newPlot("hist_year", [{ x: yearValues, type: "histogram", autobinx: false, xbins: { start: Math.min(...yearValues), end: Math.max(...yearValues), size: 5 }, marker: { opacity: 0.7 } }], {
+    title: "Histogram of Release Year", paper_bgcolor: "#111", plot_bgcolor: "#111",
+    font: { color: "#fff" }, xaxis: { title: "Year" }, yaxis: { title: "Count" }
+});
+
+
+/* =============================
+    BOX PLOT OF RATING
+============================= */
+Plotly.newPlot("box_rating", [{ y: ratingValues, type: 'box', name: 'Rating Distribution', marker: { color: '#636efa' } }], {
+    title: "Box Plot of Ratings", paper_bgcolor: "#111", plot_bgcolor: "#111", font: { color: "#fff" },
+    yaxis: { title: "Rating" }, margin: { t: 50, b: 20, l: 40, r: 20 }
+});
+
+
+/* =============================
+    VIOLIN PLOT OF DURATION
+============================= */
+Plotly.newPlot("violin_duration", [{ y: durationValues, type: 'violin', name: 'Duration Distribution', box: { visible: true }, meanline: { visible: true }, marker: { color: '#ef553b' }, scalemode: 'width' }], {
+    title: "Violin Plot of Duration (min)", paper_bgcolor: "#111", plot_bgcolor: "#111", font: { color: "#fff" },
+    yaxis: { title: "Duration (min)" }, margin: { t: 50, b: 20, l: 40, r: 20 }
+});
+
+
+/* =============================
+    SUNBURST: Year → Genre (Top 5 Year, Top 5 Genre)
+============================= */
+const sunburstData = buildYearGenreHierarchy(5, 3); 
+
 Plotly.newPlot("sunburst_chart", [{
     type: "sunburst",
-    labels: labels,
-    parents: parents,
-    values: values,
-    branchvalues: "total"
+    labels: sunburstData.labels,
+    parents: sunburstData.parents,
+    values: sunburstData.values,
+    branchvalues: "total",
+    outsidetextfont: { size: 12 }, 
+    insidetextfont: { color: '#fff', size: 10 }
 }], {
-    title: "Genre → Year (Sunburst)",
+    // Cập nhật tiêu đề biểu đồ
+    title: sunburstData.chartTitle.replace('5 Genres', '3 Genres'), 
     paper_bgcolor: "#111",
     font: { color: "#fff" },
     margin: { t: 50, l: 0, r: 0, b: 0 },
-    sunburstcolorway:["#636efa","#ef553b","#00cc96","#ab63fa","#19d3f3","#e763fa"],
+    sunburstcolorway:["#636efa","#ef553b","#00cc96","#ab63fa","#19d3f3","#e763fa", "#FF9900", "#33CCFF"],
     extendsunburstcolors: true,
-    // CHỈNH DOMAIN
-    sunburst: { domain: { x: [0, 1], y: [0, 1] } }
 });
 
 
-
 /* =============================
-   TREEMAP
+    TREEMAP: Year → Genre (Top 5 Year, Top 3 Genre)
 ============================= */
+// *** THAY ĐỔI: topNGenre từ 5 thành 3 ***
+const treemapData = buildYearGenreHierarchy(5, 3); 
+
 Plotly.newPlot("treemap_chart", [{
     type: "treemap",
-    labels: labels,
-    parents: parents,
-    values: values,
-    branchvalues: "total"
+    labels: treemapData.labels,
+    parents: treemapData.parents,
+    values: treemapData.values,
+    branchvalues: "total",
+    textinfo: "label+value+percent parent" 
 }], {
-    title: "Genre → Year (Treemap)",
+    // Cập nhật tiêu đề biểu đồ
+    title: treemapData.chartTitle.replace('5 Genres', '3 Genres'), 
     paper_bgcolor: "#111",
     font: { color: "#fff" }
 });

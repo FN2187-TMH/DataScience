@@ -68,7 +68,6 @@ def distribution():
 # ============================
 @app.route("/recommend")
 def recommend():
-    # Lấy tất cả genre duy nhất
     all_genres = set()
     for g in df['Genre'].dropna():
         for gg in g.split(','):
@@ -76,10 +75,14 @@ def recommend():
 
     all_genres = sorted(list(all_genres))
 
+    all_years = sorted([str(int(y)) for y in df['Year'].dropna() if str(y).replace('.', '', 1).isdigit()], reverse=True)
+    all_years = sorted(list(set(all_years)), reverse=True)
+
     return render_template(
         "recommend.html",
         df_json=df_json,
-        all_genres=all_genres
+        all_genres=all_genres,
+        all_years=all_years
     )
 
 
@@ -107,6 +110,9 @@ def movie_detail(movie_id):
         similar_movies=similar_movies
     )
 
+@app.route("/correlation")
+def correlation():
+    return render_template("correlation.html", df_json=df_json)
 
 
 # ============================

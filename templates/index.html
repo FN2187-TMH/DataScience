@@ -224,10 +224,15 @@
         </div>
 
         <!-- Links -->
-        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{{ url_for('dashboard') }}"
+            class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="{{ url_for('trends') }}" class="{% if request.endpoint == 'trends' %}active{% endif %}">Trends</a>
-        <a href="{{ url_for('distribution') }}" class="{% if request.endpoint == 'distribution' %}active{% endif %}">Distribution</a>
-        <a href="{{ url_for('recommend') }}" class="{% if request.endpoint == 'recommend' %}active{% endif %}">Recommend</a>
+        <a href="{{ url_for('distribution') }}"
+            class="{% if request.endpoint == 'distribution' %}active{% endif %}">Distribution</a>
+        <a href="{{ url_for('correlation') }}"
+            class="{% if request.endpoint == 'correlation' %}active{% endif %}">Correlation</a>
+        <a href="{{ url_for('recommend') }}"
+            class="{% if request.endpoint == 'recommend' %}active{% endif %}">Recommend</a>
     </div>
 
     <!-- Main content -->
